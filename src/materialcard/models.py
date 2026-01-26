@@ -26,9 +26,22 @@ class ApprovalContext(BaseModel):
 
 
 class ApprovalRequestData(BaseModel):
-    """Data for approval request rendering."""
+    """Data required by the Wrocław MVP approval template."""
 
-    material: MaterialData
-    context: ApprovalContext
-    request_id: Optional[str] = None  # TODO: define request id
-    notes: Optional[str] = None  # TODO: define notes field
+    investor_name: str
+    project_title: str
+    contractor_name: str
+
+    material_type: str
+    manufacturer: Optional[str] = None
+    estimated_quantity: str
+    description: Optional[str] = None
+
+    planned_delivery_date: Optional[str] = None
+    planned_installation_date: Optional[str] = None
+
+    attachments: list[str] = Field(default_factory=list)
+    attachments_text: str
+
+    prepared_by_name: Optional[str] = None
+    prepared_by_role: Optional[str] = None

@@ -12,6 +12,7 @@ def test_cli_help() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
+    assert "Options" in result.output
 
 
 def test_module_help() -> None:
