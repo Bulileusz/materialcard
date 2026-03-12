@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError as PydanticValidationError
 
 from .builder import build_approval_request
 from .context_io import load_context
-from .exceptions import MaterialCardError, NonTextPdfError
+from .exceptions import DataValidationError, MaterialCardError, NonTextPdfError
 from .models import ApprovalRequestData, MaterialData
 from .parse_regex import parse_material_from_text
 from .pdf_text import ensure_text_pdf, extract_text_from_pdf
@@ -27,6 +28,17 @@ def _handle_error(exc: Exception, *, exit_code: int = 1) -> None:
     raise typer.Exit(code=exit_code)
 
 
+def _format_validation_error(exc: PydanticValidationError) -> str:
+    details: list[str] = []
+    for item in exc.errors():
+        loc = ".".join(str(part) for part in item.get("loc", []) if part is not None)
+        msg = str(item.get("msg", "Invalid value"))
+        details.append(f"{loc}: {msg}" if loc else msg)
+    if not details:
+        return "Invalid or incomplete input data."
+    return "Invalid or incomplete input data: " + "; ".join(details)
+
+
 @app.command()
 def parse(pdf: Path, min_chars: int = 200) -> None:
     """Parse material data from a PDF and output JSON."""
@@ -40,6 +52,8 @@ def parse(pdf: Path, min_chars: int = 200) -> None:
         _handle_error(exc, exit_code=2)
     except NotImplementedError as exc:
         _handle_error(exc, exit_code=3)
+    except PydanticValidationError as exc:
+        _handle_error(DataValidationError(_format_validation_error(exc)))
     except MaterialCardError as exc:
         _handle_error(exc)
 
@@ -53,6 +67,8 @@ def build_approval(material_path: Path, context_path: Path) -> None:
         context = load_context(context_path)
         data = build_approval_request(material, context)
         _echo_json(data)
+    except PydanticValidationError as exc:
+        _handle_error(DataValidationError(_format_validation_error(exc)))
     except MaterialCardError as exc:
         _handle_error(exc)
 
@@ -79,6 +95,8 @@ def generate(
         _handle_error(exc, exit_code=2)
     except NotImplementedError as exc:
         _handle_error(exc, exit_code=3)
+    except PydanticValidationError as exc:
+        _handle_error(DataValidationError(_format_validation_error(exc)))
     except MaterialCardError as exc:
         _handle_error(exc)
 
@@ -120,6 +138,10 @@ def batch(
             item["status"] = "ok"
             item["output"] = str(output_path)
             report["processed"] = int(report["processed"]) + 1
+        except PydanticValidationError as exc:
+            item["status"] = "error"
+            item["error"] = str(DataValidationError(_format_validation_error(exc)))
+            report["errors"] = int(report["errors"]) + 1
         except Exception as exc:  # noqa: BLE001 - report errors
             item["status"] = "error"
             item["error"] = str(exc)

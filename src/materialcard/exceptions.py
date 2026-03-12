@@ -17,5 +17,14 @@ class ContextError(MaterialCardError):
     """Raised when context loading fails."""
 
 
+class TemplateNotFoundError(MaterialCardError):
+    """Raised when a DOCX template is missing."""
+
+
 class RenderError(MaterialCardError):
     """Raised when rendering fails."""
+
+
+class DataValidationError(MaterialCardError):
+    """Raised when input data fails validation."""
+
