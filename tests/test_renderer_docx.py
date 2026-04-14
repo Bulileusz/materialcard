@@ -10,8 +10,6 @@ def test_render_docx_invalid_template(tmp_path) -> None:
     template.write_text("placeholder", encoding="utf-8")
     material = MaterialData(
         material_type="Material",
-        manufacturer="Manufacturer",
-        estimated_quantity="10",
         description="Desc",
     )
     data = ApprovalRequestData(
@@ -19,8 +17,8 @@ def test_render_docx_invalid_template(tmp_path) -> None:
         project_title="Project",
         contractor_name="Contractor",
         material_type=material.material_type,
-        manufacturer=material.manufacturer,
-        estimated_quantity=material.estimated_quantity,
+        manufacturer="Manufacturer",
+        estimated_quantity="10",
         description=material.description,
         planned_delivery_date="2026-03-12",
         planned_installation_date="2026-03-13",

@@ -62,8 +62,6 @@ def test_integration_build_and_render_docx(tmp_path) -> None:
 
     material = MaterialData(
         material_type="Material",
-        manufacturer="Manufacturer",
-        estimated_quantity="10",
         description="Desc",
         attachments=[],
     )
@@ -71,6 +69,8 @@ def test_integration_build_and_render_docx(tmp_path) -> None:
         investor_name="Investor",
         project_title="Project",
         contractor_name="Contractor",
+      manufacturer="Manufacturer",
+      estimated_quantity="10",
         planned_delivery_date="2026-03-12",
         planned_installation_date="2026-03-13",
         prepared_by_name="Prepared",

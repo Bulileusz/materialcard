@@ -50,8 +50,6 @@ def parse(pdf: Path, min_chars: int = 200) -> None:
         _echo_json(material)
     except NonTextPdfError as exc:
         _handle_error(exc, exit_code=2)
-    except NotImplementedError as exc:
-        _handle_error(exc, exit_code=3)
     except PydanticValidationError as exc:
         _handle_error(DataValidationError(_format_validation_error(exc)))
     except MaterialCardError as exc:
@@ -93,8 +91,6 @@ def generate(
         typer.echo(str(output))
     except NonTextPdfError as exc:
         _handle_error(exc, exit_code=2)
-    except NotImplementedError as exc:
-        _handle_error(exc, exit_code=3)
     except PydanticValidationError as exc:
         _handle_error(DataValidationError(_format_validation_error(exc)))
     except MaterialCardError as exc:
@@ -141,6 +137,10 @@ def batch(
         except PydanticValidationError as exc:
             item["status"] = "error"
             item["error"] = str(DataValidationError(_format_validation_error(exc)))
+            report["errors"] = int(report["errors"]) + 1
+        except MaterialCardError as exc:
+            item["status"] = "error"
+            item["error"] = str(exc)
             report["errors"] = int(report["errors"]) + 1
         except Exception as exc:  # noqa: BLE001 - report errors
             item["status"] = "error"

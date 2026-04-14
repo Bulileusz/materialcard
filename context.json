@@ -1,0 +1,11 @@
+{
+  "investor_name": "Test Investor",
+  "project_title": "Test Project",
+  "contractor_name": "Test Contractor",
+  "manufacturer": "Hager",
+  "estimated_quantity": "10 szt.",
+  "planned_delivery_date": "2026-01-01",
+  "planned_installation_date": "2026-01-10",
+  "prepared_by_name": "Jan Kowalski",
+  "prepared_by_role": "Engineer"
+}

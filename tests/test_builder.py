@@ -7,8 +7,6 @@ from materialcard.models import ApprovalContext, MaterialData
 def _make_material(*, attachments: list[str]) -> MaterialData:
     return MaterialData(
         material_type="Material",
-        manufacturer="Manufacturer",
-        estimated_quantity="10",
         description="Desc",
         attachments=attachments,
     )
@@ -19,6 +17,8 @@ def _make_context(*, attachments: list[str]) -> ApprovalContext:
         investor_name="Investor",
         project_title="Project",
         contractor_name="Contractor",
+        manufacturer="Manufacturer",
+        estimated_quantity="10",
         planned_delivery_date="2026-03-12",
         planned_installation_date="2026-03-13",
         prepared_by_name="Prepared",

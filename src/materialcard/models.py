@@ -13,8 +13,6 @@ class MaterialData(BaseModel):
     source_path: Optional[str] = None
     raw_text: Optional[str] = None
     material_type: str
-    manufacturer: str
-    estimated_quantity: str
     description: str
     attachments: list[str] = Field(default_factory=list)
 
@@ -27,6 +25,8 @@ class ApprovalContext(BaseModel):
     investor_name: str
     project_title: str
     contractor_name: str
+    manufacturer: str
+    estimated_quantity: str
     planned_delivery_date: str
     planned_installation_date: str
     prepared_by_name: str
