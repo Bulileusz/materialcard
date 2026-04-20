@@ -12,7 +12,7 @@ from .builder import build_approval_request
 from .context_io import load_context
 from .exceptions import DataValidationError, MaterialCardError, NonTextPdfError
 from .models import ApprovalRequestData, MaterialData
-from .parse_regex import parse_material_from_text
+from .parse_regex import ParserDiagnostics, parse_material_from_text
 from .pdf_text import ensure_text_pdf, extract_text_from_pdf
 from .renderer_docx import render_docx
 
@@ -39,20 +39,65 @@ def _format_validation_error(exc: PydanticValidationError) -> str:
     return "Invalid or incomplete input data: " + "; ".join(details)
 
 
+def _format_parser_diagnostics(diagnostics: ParserDiagnostics) -> str:
+    lines = ["Parser diagnostics:"]
+    if diagnostics.events:
+        for event in diagnostics.events:
+            parts = [f"{event.field_name}.{event.step_name}: {event.status}"]
+            if event.matched is not None:
+                parts.append(f"matched={event.matched}")
+            if event.value_preview:
+                parts.append(f"value={event.value_preview!r}")
+            if event.note:
+                parts.append(f"note={event.note}")
+            lines.append("- " + " | ".join(parts))
+    else:
+        lines.append("- no events recorded")
+    for warning in diagnostics.warnings:
+        lines.append(f"- warning: {warning}")
+    return "\n".join(lines)
+
+
+def _echo_parser_diagnostics_if_any(diagnostics: ParserDiagnostics | None) -> None:
+    if diagnostics is None:
+        return
+    if not diagnostics.events and not diagnostics.warnings:
+        return
+    typer.echo(_format_parser_diagnostics(diagnostics), err=True)
+
+
+def _parse_material_from_pdf(
+    pdf_path: Path,
+    min_chars: int,
+    *,
+    diagnostics: ParserDiagnostics | None = None,
+) -> MaterialData:
+    text = extract_text_from_pdf(pdf_path)
+    text = ensure_text_pdf(text, min_chars=min_chars)
+    return parse_material_from_text(
+        text,
+        source_path=str(pdf_path),
+        diagnostics=diagnostics,
+    )
+
+
 @app.command()
-def parse(pdf: Path, min_chars: int = 200) -> None:
+def parse(pdf: Path, min_chars: int = 200, debug: bool = False) -> None:
     """Parse material data from a PDF and output JSON."""
 
+    diagnostics = ParserDiagnostics() if debug else None
     try:
-        text = extract_text_from_pdf(pdf)
-        text = ensure_text_pdf(text, min_chars=min_chars)
-        material = parse_material_from_text(text)
+        material = _parse_material_from_pdf(pdf, min_chars, diagnostics=diagnostics)
         _echo_json(material)
+        _echo_parser_diagnostics_if_any(diagnostics)
     except NonTextPdfError as exc:
+        _echo_parser_diagnostics_if_any(diagnostics)
         _handle_error(exc, exit_code=2)
     except PydanticValidationError as exc:
+        _echo_parser_diagnostics_if_any(diagnostics)
         _handle_error(DataValidationError(_format_validation_error(exc)))
     except MaterialCardError as exc:
+        _echo_parser_diagnostics_if_any(diagnostics)
         _handle_error(exc)
 
 
@@ -82,9 +127,7 @@ def generate(
     """Generate a DOCX approval request."""
 
     try:
-        text = extract_text_from_pdf(pdf)
-        text = ensure_text_pdf(text, min_chars=min_chars)
-        material = parse_material_from_text(text)
+        material = _parse_material_from_pdf(pdf, min_chars)
         ctx = load_context(context)
         data = build_approval_request(material, ctx)
         render_docx(data, template, output)
@@ -103,6 +146,7 @@ def batch(
     output_dir: Path,
     context: Path | None = None,
     template: Path | None = None,
+    min_chars: int = 200,
 ) -> None:
     """Process a batch of PDFs and write a report JSON."""
 
@@ -113,6 +157,7 @@ def batch(
         "skipped": 0,
         "items": [],
     }
+    ctx = load_context(context) if context is not None else None
 
     for pdf_path in input_dir.glob("*.pdf"):
         item = {"pdf": str(pdf_path)}
@@ -124,10 +169,7 @@ def batch(
             continue
 
         try:
-            text = extract_text_from_pdf(pdf_path)
-            text = ensure_text_pdf(text)
-            material = parse_material_from_text(text)
-            ctx = load_context(context)
+            material = _parse_material_from_pdf(pdf_path, min_chars)
             data = build_approval_request(material, ctx)
             output_path = output_dir / f"{pdf_path.stem}.docx"
             render_docx(data, template, output_path)

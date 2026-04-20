@@ -1,0 +1,5 @@
+Manufacturer: Elektro-Max S.A.
+Description: Power cable for external installation.
+Specyfikacja techniczna
+Opis: Kabel zasilajacy do zastosowan zewnetrznych.
+Typ: H07RN-F

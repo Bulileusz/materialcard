@@ -2,109 +2,138 @@
 
 ## What it does
 
-CLI, które z dokumentacji PDF generuje gotowy wniosek DOCX.
+`materialcard` to deterministyczne CLI w Pythonie do generowania wniosków akceptacyjnych DOCX na podstawie dokumentacji produktowej w PDF.
 
-W skrócie: wyciąga tekst z PDF, parsuje go deterministycznie (regex + heurystyki), łączy z kontekstem projektu i renderuje szablon DOCX.
+Obecny przepływ jest prosty: narzędzie wyciąga tekst z PDF, parsuje go regułami opartymi o regex i proste heurystyki, łączy wynik z kontekstem projektu i renderuje gotowy plik DOCX.
 
-## Quick start
+## Current status (MVP)
 
-1. Instalacja zależności:
+MVP jest zakończone i działa end-to-end:
+
+```text
+PDF -> text extraction -> regex parser -> MaterialData -> ApprovalContext -> ApprovalRequestData -> DOCX
+```
+
+Co działa dzisiaj:
+- ekstrakcja tekstu z tekstowych PDF-ów
+- deterministyczny parser bez AI, OCR i zgadywania runtime
+- budowanie `ApprovalRequestData` z danych z PDF i kontekstu projektu
+- render DOCX przez `docxtpl`
+- podstawowy zestaw testów jednostkowych i prosty test integracyjny
+
+To nie jest jeszcze system odporny na szeroki przekrój realnych kart materiałowych. To jest działające MVP, nie dojrzały parser dokumentów.
+
+## Example usage
+
+Instalacja:
 
 ```bash
 poetry install
 ```
 
-2. Sprawdzenie CLI:
+Parsowanie PDF do JSON:
 
 ```bash
-poetry run materialcard --help
+poetry run materialcard parse .\input\karta.pdf
 ```
 
-3. Parsowanie PDF do JSON (diagnostyka parsera):
+Generowanie DOCX z użyciem `context.json`:
 
 ```bash
-poetry run materialcard parse ./input/karta.pdf
+poetry run materialcard generate `
+  .\input\karta.pdf `
+  .\context.json `
+  .\templates\approvals\wroclaw\TEMPLATE.docx `
+  .\out.docx
 ```
 
-4. Generowanie DOCX:
-
-```bash
-poetry run materialcard generate \
-	./input/karta.pdf \
-	./context/wroclaw.json \
-	./templates/approvals/wroclaw/template.docx \
-	./out/wniosek.docx
-```
-
-## Example
-
-Przykładowy plik kontekstu `./context/wroclaw.json`:
+Przykładowy `context.json`:
 
 ```json
 {
-	"investor_name": "Gmina Wroclaw",
-	"project_title": "Modernizacja instalacji",
-	"contractor_name": "Firma XYZ",
-	"manufacturer": "Schneider Electric",
-	"estimated_quantity": "12 szt.",
-	"planned_delivery_date": "2026-05-10",
-	"planned_installation_date": "2026-05-20",
-	"prepared_by_name": "Jan Kowalski",
-	"prepared_by_role": "Kierownik robot",
-	"attachments": ["Karta katalogowa", "Deklaracja zgodnosci"]
+  "investor_name": "Gmina Wroclaw",
+  "project_title": "Modernizacja instalacji",
+  "contractor_name": "Firma XYZ",
+  "manufacturer": "Schneider Electric",
+  "estimated_quantity": "12 szt.",
+  "planned_delivery_date": "2026-05-10",
+  "planned_installation_date": "2026-05-20",
+  "prepared_by_name": "Jan Kowalski",
+  "prepared_by_role": "Kierownik robot",
+  "attachments": ["Karta katalogowa", "Deklaracja zgodnosci"]
 }
 ```
 
-Pełny przepływ na jednym materiale:
+## Architecture
 
-```bash
-poetry run materialcard parse ./input/ADC960D.pdf
-poetry run materialcard generate \
-	./input/ADC960D.pdf \
-	./context/wroclaw.json \
-	./templates/approvals/wroclaw/template.docx \
-	./out/ADC960D-wniosek.docx
-```
+Najważniejsze modele:
+- `MaterialData` - dane wyciągnięte z PDF, np. `material_type`, `description`
+- `ApprovalContext` - dane projektowe podawane z zewnątrz, np. `manufacturer`, `estimated_quantity`
+- `ApprovalRequestData` - końcowy, ścisły kontrakt danych dla szablonu DOCX
 
-## How it works
+Skrót przepływu:
+- `pdf_text.py` - ekstrakcja tekstu z PDF
+- `parse_regex.py` - parser oparty o label-based regex i proste fallbacki liniowe
+- `builder.py` - złożenie `MaterialData` i `ApprovalContext`
+- `renderer_docx.py` - render DOCX przez `docxtpl`
+- `cli.py` - komendy `parse`, `build-approval`, `generate`, `batch`
 
-Pipeline działa end-to-end:
+Założenie MVP jest celowe: parser nie zgaduje producenta ani ilości. Te pola pochodzą z kontekstu.
 
-```text
-PDF -> tekst -> parser -> MaterialData -> ApprovalContext -> ApprovalRequestData -> DOCX
-```
+## Known limitations
 
-- `pdf_text.py`: ekstrakcja tekstu z PDF i walidacja minimalnej długości.
-- `parse_regex.py`: parser deterministyczny (bez AI i OCR).
-- `builder.py`: składanie danych do kontraktu DOCX.
-- `renderer_docx.py`: render szablonu przez `docxtpl`.
+Obecne ograniczenia są znane i nie są ukrywane:
 
-## Data model
+- parser jest kruchy dla niespójnych PDF-ów z realnego świata
+- fallback logic w parserze jest nadal prosty i może wybrać złą linię
+- parser nie ma jeszcze sensownej diagnostyki, więc analiza błędów jest słaba
+- CLI powiela część orkiestracji między komendami
+- testy są za płytkie względem realnych wejść i mają mało prawdziwych fixture'ów
+- w repo są problemy z encodingiem, które trzeba uporządkować
+- architektura jest wystarczająca dla MVP, ale nie jest jeszcze gotowa na większy wzrost
+- brak OCR: PDF musi zawierać warstwę tekstową
+- brak AI/ML: tylko regex + proste heurystyki
+- `manufacturer` nie jest wiarygodnie parsowany z PDF i nadal pochodzi z kontekstu
+- `estimated_quantity` również pochodzi z kontekstu
 
-- `MaterialData`: dane wyciągane z PDF (np. `material_type`, `description`, `raw_text`).
-- `ApprovalContext`: dane projektowe podawane z zewnątrz (w tym `manufacturer`, `estimated_quantity`).
-- `ApprovalRequestData`: finalny, ścisły kontrakt przekazywany do szablonu DOCX.
+Jeśli parser zacznie dostawać więcej wariantów dokumentów bez przebudowy v0.2, pierwszy problem pojawi się w jakości ekstrakcji, nie w renderze DOCX.
 
-Najważniejsze: parser nie zgaduje producenta ani ilości. Te pola zawsze pochodzą z kontekstu.
+## v0.2 direction
 
-## Limitations
+v0.2 nie ma przepisywać projektu od zera. Kierunek jest inkrementalny:
 
-- Brak OCR: PDF musi mieć warstwę tekstową.
-- Brak AI/LLM: tylko regex i jawne heurystyki.
-- Zachowanie jest deterministyczne: to samo wejście daje to samo wyjście.
-- Narzędzie przygotowuje dokument roboczy, nie podejmuje decyzji administracyjnych.
+- utwardzenie parsera bez odchodzenia od deterministycznych reguł
+- rozbicie parsera na czytelniejsze części zamiast dokładania kolejnych regexów do jednego pliku
+- dodanie diagnostyki parsera i lepszych komunikatów błędów
+- dołożenie realnych fixture'ów regresyjnych
+- uproszczenie i odduplikowanie orkiestracji CLI
+- wydzielenie małej warstwy serwisowej dla wspólnego przepływu parse/build/generate
+- przygotowanie gruntu pod wiele profili parsera i wiele template'ów, ale bez budowania ciężkiego plugin systemu
+
+Nie planujemy w v0.2:
+- OCR
+- AI w logice runtime
+- pełnego przepisywania architektury
+- rozbudowanych abstrakcji "na zapas"
 
 ## Development
 
-Testy:
+Instalacja zależności:
+
+```bash
+poetry install
+```
+
+Uruchomienie testów:
 
 ```bash
 poetry run pytest
 ```
 
-Lint i format:
+CLI:
 
 ```bash
-poetry run ruff check src/ tests/
-poetry run ruff format src/ tests/
+poetry run materialcard --help
 ```
+
+Projekt jest prowadzony przez Poetry. Jeśli testy nie startują w "gołym" interpreterze Pythona, najpierw sprawdź środowisko Poetry i zainstalowane zależności.
