@@ -4,24 +4,29 @@
 
 `materialcard` to deterministyczne CLI w Pythonie do generowania wniosków akceptacyjnych DOCX na podstawie dokumentacji produktowej w PDF.
 
-Obecny przepływ jest prosty: narzędzie wyciąga tekst z PDF, parsuje go regułami opartymi o regex i proste heurystyki, łączy wynik z kontekstem projektu i renderuje gotowy plik DOCX.
+Przepływ jest jawny i bez AI/ML: PDF -> ekstrakcja tekstu -> normalizacja -> parser regex + heurystyki -> dane strukturalne -> render DOCX.
 
 ## Current status (MVP)
 
-MVP jest zakończone i działa end-to-end:
+MVP działa end-to-end:
 
 ```text
-PDF -> text extraction -> regex parser -> MaterialData -> ApprovalContext -> ApprovalRequestData -> DOCX
+PDF -> text extraction -> normalization -> regex parser -> MaterialData -> ApprovalContext -> ApprovalRequestData -> DOCX
 ```
 
 Co działa dzisiaj:
 - ekstrakcja tekstu z tekstowych PDF-ów
-- deterministyczny parser bez AI, OCR i zgadywania runtime
+- normalizacja tekstu wejściowego i podstawowa naprawa typowego mojibake
+- deterministyczny parser regex + heurystyki bez AI, OCR i zgadywania runtime
+- fallbacki rankingowe dla `material_type` i `description`
+- diagnostyka parsera przez `parse --debug`
 - budowanie `ApprovalRequestData` z danych z PDF i kontekstu projektu
 - render DOCX przez `docxtpl`
-- podstawowy zestaw testów jednostkowych i prosty test integracyjny
+- workflow `generate` wydzielony do małej warstwy `services.py`, używanej także przez `batch`
+- batch processing z raportem JSON i per-plikową obsługą błędów
+- testy jednostkowe, fixture-based parser regression tests i prosty test integracyjny DOCX
 
-To nie jest jeszcze system odporny na szeroki przekrój realnych kart materiałowych. To jest działające MVP, nie dojrzały parser dokumentów.
+To jest działające MVP, nie ogólny parser wszystkich układów kart materiałowych.
 
 ## Example usage
 
@@ -37,6 +42,20 @@ Parsowanie PDF do JSON:
 poetry run materialcard parse .\input\karta.pdf
 ```
 
+Parsowanie z diagnostyką parsera:
+
+```bash
+poetry run materialcard parse .\input\karta.pdf --debug
+```
+
+`--debug` wypisuje na stderr kroki parsera, m.in. dopasowanie labeli, znalezione fallback candidates, wybraną wartość i ostrzeżenia o brakujących polach.
+
+Budowanie danych wniosku z wcześniej zapisanego `MaterialData` i `context.json`:
+
+```bash
+poetry run materialcard build-approval .\material.json .\context.json
+```
+
 Generowanie DOCX z użyciem `context.json`:
 
 ```bash
@@ -45,6 +64,16 @@ poetry run materialcard generate `
   .\context.json `
   .\templates\approvals\wroclaw\TEMPLATE.docx `
   .\out.docx
+```
+
+Przetwarzanie katalogu PDF-ów i zapis `report.json`:
+
+```bash
+poetry run materialcard batch `
+  .\input `
+  .\output `
+  --context .\context.json `
+  --template .\templates\approvals\wroclaw\TEMPLATE.docx
 ```
 
 Przykładowy `context.json`:
@@ -69,52 +98,29 @@ Przykładowy `context.json`:
 Najważniejsze modele:
 - `MaterialData` - dane wyciągnięte z PDF, np. `material_type`, `description`
 - `ApprovalContext` - dane projektowe podawane z zewnątrz, np. `manufacturer`, `estimated_quantity`
-- `ApprovalRequestData` - końcowy, ścisły kontrakt danych dla szablonu DOCX
+- `ApprovalRequestData` - końcowy kontrakt danych dla szablonu DOCX
 
 Skrót przepływu:
 - `pdf_text.py` - ekstrakcja tekstu z PDF
-- `parse_regex.py` - parser oparty o label-based regex i proste fallbacki liniowe
-- `builder.py` - złożenie `MaterialData` i `ApprovalContext`
+- `parse_regex.py` - normalizacja tekstu, label-based regex, fallbacki i diagnostyka parsera
+- `builder.py` - złożenie `MaterialData` i `ApprovalContext`; kontekst ma pierwszeństwo dla załączników
+- `services.py` - workflow `generate_docx_from_pdf(...)`: PDF + kontekst + szablon -> `ApprovalRequestData` + DOCX
 - `renderer_docx.py` - render DOCX przez `docxtpl`
 - `cli.py` - komendy `parse`, `build-approval`, `generate`, `batch`
+
+Parser działa deterministycznie: najpierw próbuje label-based extraction, potem stosuje proste rankingowe fallbacki dla `material_type` i `description`. Diagnostyka pozwala sprawdzić, które kroki zadziałały i jakie kandydaty fallback były brane pod uwagę.
+
+`ApprovalRequestData` przechowuje strukturalne dane dla szablonu. Tekst załączników (`attachments_text`) jest wyliczany z listy `attachments`, a nie składany w builderze.
 
 Założenie MVP jest celowe: parser nie zgaduje producenta ani ilości. Te pola pochodzą z kontekstu.
 
 ## Known limitations
 
-Obecne ograniczenia są znane i nie są ukrywane:
-
-- parser jest kruchy dla niespójnych PDF-ów z realnego świata
-- fallback logic w parserze jest nadal prosty i może wybrać złą linię
-- parser nie ma jeszcze sensownej diagnostyki, więc analiza błędów jest słaba
-- CLI powiela część orkiestracji między komendami
-- testy są za płytkie względem realnych wejść i mają mało prawdziwych fixture'ów
-- w repo są problemy z encodingiem, które trzeba uporządkować
-- architektura jest wystarczająca dla MVP, ale nie jest jeszcze gotowa na większy wzrost
-- brak OCR: PDF musi zawierać warstwę tekstową
-- brak AI/ML: tylko regex + proste heurystyki
-- `manufacturer` nie jest wiarygodnie parsowany z PDF i nadal pochodzi z kontekstu
-- `estimated_quantity` również pochodzi z kontekstu
-
-Jeśli parser zacznie dostawać więcej wariantów dokumentów bez przebudowy v0.2, pierwszy problem pojawi się w jakości ekstrakcji, nie w renderze DOCX.
-
-## v0.2 direction
-
-v0.2 nie ma przepisywać projektu od zera. Kierunek jest inkrementalny:
-
-- utwardzenie parsera bez odchodzenia od deterministycznych reguł
-- rozbicie parsera na czytelniejsze części zamiast dokładania kolejnych regexów do jednego pliku
-- dodanie diagnostyki parsera i lepszych komunikatów błędów
-- dołożenie realnych fixture'ów regresyjnych
-- uproszczenie i odduplikowanie orkiestracji CLI
-- wydzielenie małej warstwy serwisowej dla wspólnego przepływu parse/build/generate
-- przygotowanie gruntu pod wiele profili parsera i wiele template'ów, ale bez budowania ciężkiego plugin systemu
-
-Nie planujemy w v0.2:
-- OCR
-- AI w logice runtime
-- pełnego przepisywania architektury
-- rozbudowanych abstrakcji "na zapas"
+Obecne ograniczenia:
+- parser jest heurystyczny i może pomylić się na nietypowych układach dokumentów
+- PDF musi zawierać warstwę tekstową; OCR nie jest obsługiwany
+- edge cases zależne od layoutu PDF nadal wymagają fixture-based regresji
+- `manufacturer` i `estimated_quantity` pochodzą z kontekstu, nie z parsera PDF
 
 ## Development
 
@@ -135,5 +141,7 @@ CLI:
 ```bash
 poetry run materialcard --help
 ```
+
+Testy obejmują deterministic parser behavior, fixture-based parser regression tests, CLI smoke tests, service orchestration tests, builder tests i prosty render DOCX. Projekt nie używa AI/ML ani OCR w runtime.
 
 Projekt jest prowadzony przez Poetry. Jeśli testy nie startują w "gołym" interpreterze Pythona, najpierw sprawdź środowisko Poetry i zainstalowane zależności.

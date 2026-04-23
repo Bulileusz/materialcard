@@ -26,18 +26,18 @@ def _read_fixture(name: str) -> str:
         ),
         (
             "labeled_wrapped_value.txt",
-            "Modular fire resistant",
+            "Modular fire resistant insulation panel for facade systems",
             "Lightweight panel for external wall assemblies",
         ),
         (
             "material_type_fallback.txt",
-            "RCBO WyA...cznik rA3A...nicowoprA...dowy z czA...onem nadprA...dowym 1P+N 6kA C 10A/30mA",
-            "ADC960D RCBO WyA...cznik rA3A...nicowoprA...dowy z czA...onem nadprA...dowym 1P+N 6kA C 10A/30mA Typ AC",
+            "RCBO Wyłącznik różnicowoprądowy z członem nadprądowym 1P+N 6kA C 10A/30mA",
+            "RCBO Wyłącznik różnicowoprądowy z członem nadprądowym 1P+N 6kA C 10A/30mA",
         ),
         (
             "description_fallback.txt",
             "Cement adhesive mortar",
-            "KARTA MATERIALOWA Material type: Cement adhesive mortar Do mocowania plyt termoizolacyjnych i zatapiania siatki",
+            "Do mocowania plyt termoizolacyjnych i zatapiania siatki na powierzchniach elewacyjnych w systemach ETICS",
         ),
     ],
 )

@@ -14,7 +14,7 @@ from .exceptions import DataValidationError, MaterialCardError, NonTextPdfError
 from .models import ApprovalRequestData, MaterialData
 from .parse_regex import ParserDiagnostics, parse_material_from_text
 from .pdf_text import ensure_text_pdf, extract_text_from_pdf
-from .renderer_docx import render_docx
+from .services import generate_docx_from_pdf
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -127,10 +127,13 @@ def generate(
     """Generate a DOCX approval request."""
 
     try:
-        material = _parse_material_from_pdf(pdf, min_chars)
-        ctx = load_context(context)
-        data = build_approval_request(material, ctx)
-        render_docx(data, template, output)
+        generate_docx_from_pdf(
+            pdf,
+            context,
+            template,
+            output,
+            min_chars=min_chars,
+        )
         typer.echo(str(output))
     except NonTextPdfError as exc:
         _handle_error(exc, exit_code=2)
@@ -169,10 +172,15 @@ def batch(
             continue
 
         try:
-            material = _parse_material_from_pdf(pdf_path, min_chars)
-            data = build_approval_request(material, ctx)
             output_path = output_dir / f"{pdf_path.stem}.docx"
-            render_docx(data, template, output_path)
+            generate_docx_from_pdf(
+                pdf_path,
+                context,
+                template,
+                output_path,
+                min_chars=min_chars,
+                context_data=ctx,
+            )
             item["status"] = "ok"
             item["output"] = str(output_path)
             report["processed"] = int(report["processed"]) + 1

@@ -1,5 +1,5 @@
 ADC960D
-RCBO WyA...cznik rA3A...nicowoprA...dowy z czA...onem nadprA...dowym 1P+N 6kA C 10A/30mA
+RCBO Wyłącznik różnicowoprądowy z członem nadprądowym 1P+N 6kA C 10A/30mA
 Typ AC
 Specyfikacja techniczna
 Prad znamionowy 10A

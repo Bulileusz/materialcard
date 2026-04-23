@@ -37,6 +37,16 @@ def test_build_approval_request_happy_path() -> None:
     assert result.attachments_text == "1. Attachment 1\n2. Attachment 2"
 
 
+def test_build_approval_request_uses_material_attachments_when_context_has_none() -> None:
+    material = _make_material(attachments=["Spec A"])
+    context = _make_context(attachments=[])
+
+    result = build_approval_request(material, context)
+
+    assert result.attachments == ["Spec A"]
+    assert result.attachments_text == "1. Spec A"
+
+
 def test_build_approval_request_empty_attachments_placeholder() -> None:
     material = _make_material(attachments=[])
     context = _make_context(attachments=[])

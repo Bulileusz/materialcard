@@ -1,0 +1,73 @@
+EPS 100-036 DACH-PODŁOGA
+DEKLARACJA WŁAŚCIWOŚCI UŻYTKOWYCH
+nr W100/WSC/01/21
+Genderka
+
+Niepowtarzalny kod identyfikacyjny typu wyrobu: GENDERKA/WSC/01/W100
+
+Zamierzone zastosowanie lub zastosowania: Izolacja cieplna w budownictwie
+
+Producent: GENDERKA Sp. z o.o. 85-862 Bydgoszcz, ul. Bogdana Raczkowskiego 1 Zakład Produkcyjny: 67-400 Wschowa, ul. Towarowa 6
+
+System(-y) oceny i weryfikacji stałości właściwości użytkowych: System 3
+
+Norma zharmonizowana: EN 13163:2012+A1:2015
+Jednostka lub jednostki notyfikowane: Instytut Techniki Budowlanej (Jednostka Notyfikowana nr 1488 1434)
+
+Deklarowane właściwości użytkowe - Tabela 1
+
+Zasadnicze charakterystyki - Właściwości użytkowe - Zharmonizowana specyfikacja techniczna
+Opór cieplny: Opór cieplny Ro - patrz Tabela 2, Deklarowany współczynnik przewodzenia ciepła λο - 0,036 [W/mK], Grubość dn - T2, dn-patrz Tabela 2
+Reakcja na ogień: Reakcja na ogień - E
+Trwałość reakcji na ogień w funkcji ciepła, warunków atmosferycznych, starzenia/degradacji: Trwałość właściwości - E
+Trwałość oporu cieplnego w funkcji ciepła, warunków atmosferycznych, starzenia/degradacji: Opór cieplny Ro - patrz Tabela 2, Deklarowany współczynnik przewodzenia ciepła λο - 0,036 [W/mK], Trwałość właściwości - NPD
+Wytrzymałość na ściskanie: Naprężenie ściskające przy 10% odkształceniu - CS(10)100
+Wytrzymałość na rozciąganie/zginanie: Wytrzymałość na zginanie - BS150, Wytrzymałość na rozciąganie prostopadle do powierzchni czołowych - NPD, Zharmonizowana specyfikacja techniczna - EN 13163:2012+A1:2015
+Trwałość wytrzymałości na ściskanie w funkcji starzenia i degradacji: Pełzanie przy ściskaniu - NPD, Odporność na zamrażanie-odmrażanie - NPD, Długotrwała redukcja grubości - NPD
+Przepuszczalność wody: Nasiąkliwość wodą przy długotrwałym zanurzeniu - NPD, Nasiąkliwość wodą przy długotrwałej dyfuzji - NPD
+Przepuszczalność pary wodnej: Przenikanie pary wodnej - NPD
+Wskaźnik izolacyjności od dźwięków uderzeniowych (dla podłóg): Sztywność dynamiczna - NPD, Grubość d - NPD, Ściśliwość c - NPD
+Ciągłe spalanie w postaci żarzenia: Ciągłe spalanie w postaci żarzenia - NPD
+Uwalnianie się substancji niebezpiecznych do środowiska wewnętrznego: Uwalnianie się substancji niebezpiecznych - NPD
+
+Właściwości nie zmieniają się w czasie
+
+5 Deklarowany opór cieplny w zależności od grubości wyrobu - Tabela 2
+
+Grubość d [mm]: 10, Opór cieplny Ro [m2K/W]: 0,25
+Grubość d [mm]: 20, Opór cieplny Ro [m2K/W]: 0,55
+Grubość d [mm]: 30, Opór cieplny Ro [m2K/W]: 0,80
+Grubość d [mm]: 40, Opór cieplny Ro [m2K/W]: 1,10
+Grubość d [mm]: 50, Opór cieplny Ro [m2K/W]: 1,35
+Grubość d [mm]: 60, Opór cieplny Ro [m2K/W]: 1,65
+Grubość d [mm]: 70, Opór cieplny Ro [m2K/W]: 1,90
+Grubość d [mm]: 80, Opór cieplny Ro [m2K/W]: 2,20
+Grubość d [mm]: 90, Opór cieplny Ro [m2K/W]: 2,50
+Grubość d [mm]: 100, Opór cieplny Ro [m2K/W]: 2,75
+Grubość d [mm]: 110, Opór cieplny Ro [m2K/W]: 3,05
+Grubość d [mm]: 120, Opór cieplny Ro [m2K/W]: 3,30
+Grubość d [mm]: 130, Opór cieplny Ro [m2K/W]: 3,60
+Grubość d [mm]: 140, Opór cieplny Ro [m2K/W]: 3,85
+Grubość d [mm]: 150, Opór cieplny Ro [m2K/W]: 4,15
+Grubość d [mm]: 160, Opór cieplny Ro [m2K/W]: 4,40
+Grubość d [mm]: 170, Opór cieplny Ro [m2K/W]: 4,70
+Grubość d [mm]: 180, Opór cieplny Ro [m2K/W]: 5,00
+Grubość d [mm]: 190, Opór cieplny Ro [m2K/W]: 5,25
+Grubość d [mm]: 200, Opór cieplny Ro [m2K/W]: 5,55
+Grubość d [mm]: 210, Opór cieplny Ro [m2K/W]: 5,80
+Grubość d [mm]: 220, Opór cieplny Ro [m2K/W]: 6,10
+Grubość d [mm]: 230, Opór cieplny Ro [m2K/W]: 6,35
+Grubość d [mm]: 240, Opór cieplny Ro [m2K/W]: 6,65
+Grubość d [mm]: 250, Opór cieplny Ro [m2K/W]: 6,90
+Grubość d [mm]: 260, Opór cieplny Ro [m2K/W]: 7,20
+Grubość d [mm]: 270, Opór cieplny Ro [m2K/W]: 7,50
+Grubość d [mm]: 280, Opór cieplny Ro [m2K/W]: 7,75
+Grubość d [mm]: 290, Opór cieplny Ro [m2K/W]: 8,05
+Grubość d [mm]: 300, Opór cieplny Ro [m2K/W]: 8,30
+
+Właściwości użytkowe określonego powyżej wyrobu są zgodne z zestawem deklarowanych właściwości użytkowych.
+Niniejsza deklaracja właściwości użytkowych wydana zostaje zgodnie z rozporządzeniem (UE) nr 305/2011 na wyłączną odpowiedzialność producenta określonego powyżej.
+W imieniu producenta podpisał:
+w Bydgoszczy, dnia 04.01.2021
+Marcin Jaroszyński- Członek Zarządu
+Marcin Jaroszyászo

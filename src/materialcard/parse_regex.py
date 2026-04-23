@@ -1,4 +1,4 @@
-"""Regex-based parsing for material data (placeholder)."""
+"""Regex-based parsing for material data."""
 
 from __future__ import annotations
 
@@ -39,6 +39,63 @@ _FALLBACK_EXCLUDED_HEADERS = {
     "bezpieczeństwo",
 }
 
+_FALLBACK_NOISE_PHRASES = (
+    "karta materialowa",
+    "karta produktu",
+    "deklaracja właściwości użytkowych",
+    "dokumentacja techniczna",
+    "strona tytulowa",
+    "strona tytułowa",
+)
+
+_DECLARATION_PRODUCT_CODE_PREFIX = "niepowtarzalny kod identyfikacyjny typu wyrobu"
+
+_MATERIAL_DESCRIPTION_KEYWORDS = (
+    "adhesive",
+    "board",
+    "cable",
+    "cement",
+    "facade",
+    "fire",
+    "insulation",
+    "mortar",
+    "panel",
+    "kabel",
+    "plyta",
+    "płyta",
+    "przewod",
+    "przewód",
+    "roznicowopradowy",
+    "różnicowoprądowy",
+    "wylacznik",
+    "wyłącznik",
+    "zaprawa",
+)
+
+_DESCRIPTION_NOISE_PHRASES = (
+    *_FALLBACK_NOISE_PHRASES,
+    "dane techniczne",
+    "technical data",
+)
+
+_DESCRIPTION_KEYWORDS = (
+    *_MATERIAL_DESCRIPTION_KEYWORDS,
+    "assemblies",
+    "commercial",
+    "elewacyjnych",
+    "etics",
+    "external",
+    "komercyjnych",
+    "mieszkaniowych",
+    "mocowania",
+    "montażu",
+    "powierzchniach",
+    "rozdzielnicach",
+    "stosowania",
+    "systems",
+    "zatapiania",
+)
+
 _MOJIBAKE_MARKERS = (
     "Ã",
     "Å",
@@ -70,6 +127,7 @@ _COMMON_MOJIBAKE_REPLACEMENTS = {
     "Å›": "ś",
     "Åš": "Ś",
     "Å¼": "ż",
+    "Åż": "ż",
     "Å»": "Ż",
     "Åº": "ź",
     "Å¹": "Ź",
@@ -154,6 +212,11 @@ def _meaningful_lines(text: str) -> list[str]:
     return lines
 
 
+def _preprocess_parser_input(text: str) -> tuple[str, list[str]]:
+    normalized = _normalize_parser_text(text)
+    return normalized, _meaningful_lines(normalized)
+
+
 def _preview_value(value: str | None, *, limit: int = 80) -> str | None:
     if value is None:
         return None
@@ -168,11 +231,28 @@ def _extract_labeled_value(text: str, labels: tuple[str, ...]) -> str | None:
     pattern = re.compile(
         rf"(?im)^\s*(?:{label_pattern})\s*[:\-]\s*(.+?)\s*$",
     )
-    match = pattern.search(text)
-    if not match:
-        return None
-    value = re.sub(r"\s+", " ", match.group(1)).strip(" .;:-")
-    return value or None
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        match = pattern.match(line)
+        if not match:
+            continue
+
+        parts = [match.group(1)]
+        for continuation in lines[index + 1 :]:
+            if pattern.match(continuation):
+                break
+            if re.match(r"^\s*[\w /().-]{1,40}\s*[:\-]\s*\S", continuation):
+                break
+            stripped = continuation.strip()
+            if not (
+                stripped
+                and (stripped[0].islower() or stripped[0].isdigit() or stripped[0] in "(/+")
+            ):
+                break
+            parts.append(stripped)
+        value = re.sub(r"\s+", " ", " ".join(parts)).strip(" .;:-")
+        return value or None
+    return None
 
 
 def _is_fallback_material_type_candidate(line: str) -> bool:
@@ -188,6 +268,124 @@ def _is_fallback_material_type_candidate(line: str) -> bool:
             return False
 
     return True
+
+
+def _score_fallback_material_type_candidate(line: str) -> int:
+    stripped = line.strip()
+    lowered = stripped.lower()
+    words = re.findall(r"\w+", lowered)
+    score = 0
+
+    if any(phrase in lowered for phrase in _FALLBACK_NOISE_PHRASES):
+        score -= 12
+    if re.fullmatch(r"[A-Z0-9][A-Z0-9./+-]*", stripped) and len(stripped) <= 24:
+        score -= 8
+    if stripped.isupper() and len(words) <= 3:
+        score -= 4
+    if len(stripped) < 8:
+        score -= 3
+
+    if len(words) >= 3:
+        score += 4
+    if len(stripped) >= 20:
+        score += 3
+    if any(char.islower() for char in stripped):
+        score += 2
+    if any(keyword in lowered for keyword in _MATERIAL_DESCRIPTION_KEYWORDS):
+        score += 5
+
+    return score
+
+
+def _extract_declaration_material_type(lines: list[str]) -> str | None:
+    if not any("deklaracja właściwości użytkowych" in line.lower() for line in lines[:5]):
+        return None
+
+    first_title: str | None = None
+    for line in lines[:5]:
+        stripped = line.strip()
+        lowered = stripped.lower()
+        if not stripped:
+            continue
+        if any(phrase in lowered for phrase in _FALLBACK_NOISE_PHRASES):
+            continue
+        if lowered.startswith(("nr ", "producent:", "zamierzone zastosowanie")):
+            continue
+        if ":" in stripped:
+            continue
+        first_title = stripped
+        break
+
+    if first_title is not None:
+        return first_title
+
+    for line in lines[:10]:
+        lowered = line.lower()
+        if lowered.startswith(_DECLARATION_PRODUCT_CODE_PREFIX):
+            _, _, value = line.partition(":")
+            value = value.strip(" .;:-")
+            return value or None
+
+    return None
+
+
+def _is_catalog_or_product_code(line: str) -> bool:
+    stripped = line.strip()
+    return bool(re.fullmatch(r"[A-Z0-9][A-Z0-9./+-]*", stripped) and len(stripped) <= 24)
+
+
+def _score_description_fallback_line(line: str, material_type: str | None) -> int:
+    stripped = line.strip()
+    lowered = stripped.lower()
+    words = re.findall(r"\w+", lowered)
+    score = 0
+
+    if not words:
+        return -20
+    if any(phrase in lowered for phrase in _DESCRIPTION_NOISE_PHRASES):
+        score -= 12
+    if any(re.match(rf"^{re.escape(prefix)}\s*[:\-]?\b", lowered) for prefix in _FALLBACK_EXCLUDED_LABEL_PREFIXES):
+        score -= 10
+    if _is_catalog_or_product_code(stripped):
+        score -= 10
+    if stripped.isupper() and len(words) <= 4:
+        score -= 5
+    if material_type and lowered == material_type.lower():
+        score -= 8
+    if len(stripped) < 12:
+        score -= 4
+
+    if len(words) >= 5:
+        score += 5
+    if len(stripped) >= 35:
+        score += 3
+    if any(char.islower() for char in stripped):
+        score += 2
+    if any(keyword in lowered for keyword in _DESCRIPTION_KEYWORDS):
+        score += 6
+
+    return score
+
+
+def _select_description_fallback(lines: list[str], material_type: str | None) -> tuple[str, int, int] | None:
+    scored = [
+        (index, line, _score_description_fallback_line(line, material_type))
+        for index, line in enumerate(lines)
+    ]
+    viable = [(index, line, score) for index, line, score in scored if score > 0]
+    if not viable:
+        return None
+
+    selected_index, selected_line, selected_score = max(viable, key=lambda item: item[2])
+    selected_lines = [selected_line.strip(" .;:-")]
+    if selected_index + 1 < len(lines):
+        next_line = lines[selected_index + 1]
+        next_score = _score_description_fallback_line(next_line, material_type)
+        if next_score >= 9:
+            selected_lines.append(next_line.strip(" .;:-"))
+
+    fallback = re.sub(r"\s+", " ", " ".join(selected_lines)).strip(" .;:-")
+    return fallback, len(viable), selected_score
 
 
 def _extract_material_type(
@@ -220,28 +418,33 @@ def _extract_material_type(
             value_preview=preview or None,
             note=f"{len(candidates)} candidate(s)",
         )
-    if len(candidates) >= 2:
+    declaration_material_type = _extract_declaration_material_type(lines)
+    if declaration_material_type:
         if diagnostics is not None:
             diagnostics.add_event(
                 field_name="material_type",
                 step_name="fallback_selection",
                 status="selected",
                 matched=True,
-                value_preview=_preview_value(candidates[1]),
-                note=f"selected candidate 2 of {len(candidates)}",
+                value_preview=_preview_value(declaration_material_type),
+                note="selected declaration product identifier",
             )
-        return candidates[1]
+        return declaration_material_type
     if candidates:
+        selected = max(candidates, key=_score_fallback_material_type_candidate)
         if diagnostics is not None:
             diagnostics.add_event(
                 field_name="material_type",
                 step_name="fallback_selection",
                 status="selected",
                 matched=True,
-                value_preview=_preview_value(candidates[0]),
-                note="selected candidate 1 of 1",
+                value_preview=_preview_value(selected),
+                note=(
+                    f"selected highest-ranked candidate of {len(candidates)} "
+                    f"(score {_score_fallback_material_type_candidate(selected)})"
+                ),
             )
-        return candidates[0]
+        return selected
     if diagnostics is not None:
         diagnostics.add_event(
             field_name="material_type",
@@ -256,6 +459,7 @@ def _extract_material_type(
 def _extract_description(
     text: str,
     lines: list[str],
+    material_type: str | None = None,
     diagnostics: ParserDiagnostics | None = None,
 ) -> str:
     labeled = _extract_labeled_value(text, _DESCRIPTION_LABELS)
@@ -270,8 +474,9 @@ def _extract_description(
     if labeled:
         return labeled
 
-    if lines:
-        fallback = " ".join(lines[:3])[:280]
+    selected = _select_description_fallback(lines, material_type)
+    if selected is not None:
+        fallback, candidate_count, selected_score = selected
         if diagnostics is not None:
             diagnostics.add_event(
                 field_name="description",
@@ -279,7 +484,10 @@ def _extract_description(
                 status="selected",
                 matched=True,
                 value_preview=_preview_value(fallback),
-                note=f"used first {min(3, len(lines))} meaningful lines",
+                note=(
+                    f"selected highest-ranked candidate(s) from {candidate_count} "
+                    f"line(s) (score {selected_score})"
+                ),
             )
         return fallback
 
@@ -310,6 +518,85 @@ def _extract_description(
     return fallback
 
 
+def _missing_required_fields(*, material_type: str | None) -> list[str]:
+    missing: list[str] = []
+    if not material_type:
+        missing.append("material_type")
+    return missing
+
+
+def _record_missing_required_fields(
+    missing: list[str],
+    diagnostics: ParserDiagnostics | None,
+) -> None:
+    if diagnostics is None:
+        return
+    diagnostics.add_event(
+        field_name="required_fields",
+        step_name="missing_required_fields",
+        status="failed",
+        matched=False,
+        note="missing required fields: " + ", ".join(missing),
+    )
+    diagnostics.add_warning("Missing required fields: " + ", ".join(missing))
+
+
+def _record_required_fields_ok(diagnostics: ParserDiagnostics | None) -> None:
+    if diagnostics is None:
+        return
+    diagnostics.add_event(
+        field_name="required_fields",
+        step_name="missing_required_fields",
+        status="ok",
+        matched=True,
+        note="all required fields present",
+    )
+
+
+def _require_material_type(
+    material_type: str | None,
+    diagnostics: ParserDiagnostics | None,
+) -> str:
+    missing = _missing_required_fields(material_type=material_type)
+    if missing:
+        _record_missing_required_fields(missing, diagnostics)
+        raise ParseError("Missing required fields: " + ", ".join(missing))
+
+    _record_required_fields_ok(diagnostics)
+    return material_type
+
+
+def _extract_material_fields(
+    normalized_text: str,
+    lines: list[str],
+    diagnostics: ParserDiagnostics | None,
+) -> tuple[str, str]:
+    material_type = _extract_material_type(normalized_text, lines, diagnostics=diagnostics)
+    material_type = _require_material_type(material_type, diagnostics)
+    description = _extract_description(
+        normalized_text,
+        lines,
+        material_type=material_type,
+        diagnostics=diagnostics,
+    )
+    return material_type, description
+
+
+def _build_material_data(
+    *,
+    source_path: str | None,
+    raw_text: str,
+    material_type: str,
+    description: str,
+) -> MaterialData:
+    return MaterialData(
+        source_path=source_path,
+        raw_text=raw_text,
+        material_type=material_type,
+        description=description,
+    )
+
+
 def parse_material_from_text(
     text: str,
     *,
@@ -318,40 +605,13 @@ def parse_material_from_text(
 ) -> MaterialData:
     """Parse material data from raw text."""
 
-    normalized = _normalize_parser_text(text)
-    lines = _meaningful_lines(normalized)
-
-    material_type = _extract_material_type(normalized, lines, diagnostics=diagnostics)
-
-    missing: list[str] = []
-    if not material_type:
-        missing.append("material_type")
-    if missing:
-        if diagnostics is not None:
-            diagnostics.add_event(
-                field_name="required_fields",
-                step_name="missing_required_fields",
-                status="failed",
-                matched=False,
-                note="missing required fields: " + ", ".join(missing),
-            )
-            diagnostics.add_warning("Missing required fields: " + ", ".join(missing))
-        raise ParseError(
-            "Missing required fields: " + ", ".join(missing)
-        )
-
-    if diagnostics is not None:
-        diagnostics.add_event(
-            field_name="required_fields",
-            step_name="missing_required_fields",
-            status="ok",
-            matched=True,
-            note="all required fields present",
-        )
-
-    description = _extract_description(normalized, lines, diagnostics=diagnostics)
-
-    return MaterialData(
+    normalized, lines = _preprocess_parser_input(text)
+    material_type, description = _extract_material_fields(
+        normalized,
+        lines,
+        diagnostics,
+    )
+    return _build_material_data(
         source_path=source_path,
         raw_text=normalized,
         material_type=material_type,

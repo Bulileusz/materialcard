@@ -148,27 +148,31 @@ def test_batch_loads_context_once(monkeypatch, tmp_path) -> None:
         calls.append(("load_context", path))
         return shared_context
 
-    def fake_parse_material_from_pdf(
+    def fake_generate_docx_from_pdf(
         pdf_path: Path,
-        min_chars: int,
+        context_path_arg: Path,
+        template: Path,
+        output: Path,
         *,
-        diagnostics: ParserDiagnostics | None = None,
-    ) -> MaterialData:
-        calls.append(("parse_material_from_pdf", pdf_path, min_chars))
-        return shared_material
-
-    def fake_build_approval_request(material: MaterialData, ctx: ApprovalContext) -> ApprovalRequestData:
-        calls.append(("build_approval_request", material, ctx))
+        min_chars: int = 200,
+        context_data: ApprovalContext | None = None,
+    ) -> ApprovalRequestData:
+        calls.append(
+            (
+                "generate_docx_from_pdf",
+                pdf_path,
+                context_path_arg,
+                template,
+                output,
+                min_chars,
+                context_data,
+            )
+        )
+        output.write_text("docx", encoding="utf-8")
         return shared_approval
 
-    def fake_render_docx(data: ApprovalRequestData, template: Path, output: Path) -> None:
-        calls.append(("render_docx", data, template, output))
-        output.write_text("docx", encoding="utf-8")
-
     monkeypatch.setattr("materialcard.cli.load_context", fake_load_context)
-    monkeypatch.setattr("materialcard.cli._parse_material_from_pdf", fake_parse_material_from_pdf)
-    monkeypatch.setattr("materialcard.cli.build_approval_request", fake_build_approval_request)
-    monkeypatch.setattr("materialcard.cli.render_docx", fake_render_docx)
+    monkeypatch.setattr("materialcard.cli.generate_docx_from_pdf", fake_generate_docx_from_pdf)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -178,7 +182,9 @@ def test_batch_loads_context_once(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert [call for call in calls if call[0] == "load_context"] == [("load_context", context_path)]
-    assert len([call for call in calls if call[0] == "parse_material_from_pdf"]) == 2
+    service_calls = [call for call in calls if call[0] == "generate_docx_from_pdf"]
+    assert len(service_calls) == 2
+    assert all(call[6] is shared_context for call in service_calls)
 
 
 def test_batch_uses_shared_parse_helper_with_min_chars(monkeypatch, tmp_path) -> None:
@@ -227,30 +233,26 @@ def test_batch_uses_shared_parse_helper_with_min_chars(monkeypatch, tmp_path) ->
         prepared_by_name="Prepared",
         prepared_by_role="Role",
     )
-    parse_calls: list[tuple[Path, int, ParserDiagnostics | None]] = []
+    service_calls: list[tuple[Path, Path, Path, Path, int, ApprovalContext | None]] = []
 
     def fake_load_context(path: Path) -> ApprovalContext:
         return shared_context
 
-    def fake_parse_material_from_pdf(
+    def fake_generate_docx_from_pdf(
         pdf_path: Path,
-        min_chars: int,
+        context_path_arg: Path,
+        template: Path,
+        output: Path,
         *,
-        diagnostics: ParserDiagnostics | None = None,
-    ) -> MaterialData:
-        parse_calls.append((pdf_path, min_chars, diagnostics))
-        return shared_material
-
-    def fake_build_approval_request(material: MaterialData, ctx: ApprovalContext) -> ApprovalRequestData:
+        min_chars: int = 200,
+        context_data: ApprovalContext | None = None,
+    ) -> ApprovalRequestData:
+        service_calls.append((pdf_path, context_path_arg, template, output, min_chars, context_data))
+        output.write_text("docx", encoding="utf-8")
         return shared_approval
 
-    def fake_render_docx(data: ApprovalRequestData, template: Path, output: Path) -> None:
-        output.write_text("docx", encoding="utf-8")
-
     monkeypatch.setattr("materialcard.cli.load_context", fake_load_context)
-    monkeypatch.setattr("materialcard.cli._parse_material_from_pdf", fake_parse_material_from_pdf)
-    monkeypatch.setattr("materialcard.cli.build_approval_request", fake_build_approval_request)
-    monkeypatch.setattr("materialcard.cli.render_docx", fake_render_docx)
+    monkeypatch.setattr("materialcard.cli.generate_docx_from_pdf", fake_generate_docx_from_pdf)
 
     runner = CliRunner()
     result = runner.invoke(
@@ -269,6 +271,6 @@ def test_batch_uses_shared_parse_helper_with_min_chars(monkeypatch, tmp_path) ->
     )
 
     assert result.exit_code == 0
-    assert parse_calls == [(pdf_path, 321, None)]
+    assert service_calls == [(pdf_path, context_path, template_path, output_dir / "one.docx", 321, shared_context)]
     report = json.loads((output_dir / "report.json").read_text(encoding="utf-8"))
     assert report["processed"] == 1

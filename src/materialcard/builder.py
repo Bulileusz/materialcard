@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from .models import ApprovalContext, ApprovalRequestData, MaterialData
 
-ATTACHMENTS_PLACEHOLDER = "—"
-
 
 def build_approval_request(
     material: MaterialData,
@@ -13,8 +11,7 @@ def build_approval_request(
 ) -> ApprovalRequestData:
     """Build approval request data from parsed material and contextual metadata."""
 
-    attachments = ctx.attachments or material.attachments
-    attachments_text = _format_attachments_text(attachments)
+    attachments = _select_attachments(material=material, ctx=ctx)
 
     payload = {
         "investor_name": ctx.investor_name,
@@ -27,7 +24,6 @@ def build_approval_request(
         "planned_delivery_date": ctx.planned_delivery_date,
         "planned_installation_date": ctx.planned_installation_date,
         "attachments": attachments,
-        "attachments_text": attachments_text,
         "prepared_by_name": ctx.prepared_by_name,
         "prepared_by_role": ctx.prepared_by_role,
     }
@@ -35,8 +31,11 @@ def build_approval_request(
     return ApprovalRequestData(**payload)
 
 
-
-def _format_attachments_text(attachments: list[str]) -> str:
-    if not attachments:
-        return ATTACHMENTS_PLACEHOLDER
-    return "\n".join(f"{idx}. {item}" for idx, item in enumerate(attachments, start=1))
+def _select_attachments(
+    *,
+    material: MaterialData,
+    ctx: ApprovalContext,
+) -> list[str]:
+    if ctx.attachments:
+        return ctx.attachments
+    return material.attachments

@@ -1,0 +1,32 @@
+Deklaracja Właściwości Użytkowych
+Nr 01-BPL-Solido 225
+
+Niepowtarzalny kod identyfikacyjny typu wyrobu: Baumit Solido 225
+
+Zamierzone zastosowanie lub zastosowania: Sucha, cementowa mieszanka do wykonywania jastrychów na podłożach mineralnych do stosowania wewnątrz obiektów budowlanych. Klasa CT-C20-F5-A15
+
+Producent: Baumit sp. z o.o., ul. Wyścigowa 56G, 53-012 Wrocław
+
+System(-y) oceny i weryfikacji stałości właściwości użytkowych: System 4
+
+Norma zharmonizowana: EN 13813:2002
+
+Deklarowane właściwości użytkowe:
+Zasadnicze charakterystyki - Właściwości użytkowe
+Reakcja na ogień: Klasa A1
+Wydzielanie substancji korozyjnych: CT
+Przepuszczalność wody: NPD
+Przepuszczalność pary wodnej: NPD
+Wytrzymałość na ściskanie: C20
+Wytrzymałość na zginanie: F5
+Odporność na ścieranie: A15
+Izolacyjność akustyczna: NPD
+Dźwiękochłonność: NPD
+Opór cieplny: NPD
+Odporność chemiczna: NPD
+
+Właściwości użytkowe określonego powyżej wyrobu są zgodne z zestawem deklarowanych właściwości użytkowych. Niniejsza deklaracja właściwości użytkowych wydana zostaje zgodnie z rozporządzeniem (UE) nr 305/2011 na wyłączną odpowiedzialność producenta określonego powyżej.
+
+W imieniu producenta podpisał(-a): Jacek Kulig
+w Łowiczu dnia 05.08.2024
+Jacek Kulig - Dyrektor ds. Produktu i Technologii
