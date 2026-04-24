@@ -113,6 +113,11 @@ Właściwości builda:
 - zawiera interpreter i zależności, więc nie wymaga zewnętrznego Pythona na komputerze użytkownika
 - zawiera domyślny template DOCX i działa także w trybie PyInstaller `--onefile`
 
+Artifact z CI:
+- workflow `Build Windows EXE` można uruchomić ręcznie z zakładki Actions przez `workflow_dispatch`
+- po zakończeniu builda do pobrania jest artifact `materialcard-windows-exe`
+- przy tagu `v*` workflow publikuje też GitHub Release z załączonym `materialcard.exe` i plikiem `.sha256`
+
 ## Development
 
 Instalacja zależności:

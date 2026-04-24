@@ -1,0 +1,55 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --with build --extras docx
+
+      - name: Build one-file EXE
+        run: poetry run pyinstaller --noconfirm --clean materialcard.spec
+
+      - name: Generate SHA256
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist/materialcard.exe -Algorithm SHA256).Hash.ToLower()
+          Set-Content -LiteralPath dist/materialcard.exe.sha256 -Value "$hash *materialcard.exe"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: materialcard-windows-exe
+          path: |
+            dist/materialcard.exe
+            dist/materialcard.exe.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/materialcard.exe
+            dist/materialcard.exe.sha256
