@@ -8,6 +8,10 @@ class MaterialCardError(Exception):
 class NonTextPdfError(MaterialCardError):
     """Raised when a PDF does not contain enough text."""
 
+    def __init__(self, message: str, *, extracted_text: str = "") -> None:
+        super().__init__(message)
+        self.extracted_text = extracted_text
+
 
 class ParseError(MaterialCardError):
     """Raised when parsing text fails."""

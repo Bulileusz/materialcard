@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = []
 packages = [{ include = "materialcard", from = "src" }]
+include = ["src/materialcard/templates/*.docx"]
 
 [tool.poetry.dependencies]
 python = "^3.11"

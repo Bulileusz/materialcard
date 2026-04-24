@@ -26,6 +26,7 @@ def ensure_text_pdf(text: str, *, min_chars: int = 200) -> str:
     normalized = text.strip()
     if len(normalized) < min_chars:
         raise NonTextPdfError(
-            f"PDF text too short: {len(normalized)} chars (min {min_chars})."
+            f"PDF text too short: {len(normalized)} chars (min {min_chars}).",
+            extracted_text=normalized,
         )
     return normalized

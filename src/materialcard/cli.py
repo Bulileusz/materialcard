@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from contextlib import ExitStack
+from importlib.resources import as_file, files
 from pathlib import Path
 
 import typer
@@ -10,7 +12,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from .builder import build_approval_request
 from .context_io import load_context
-from .exceptions import DataValidationError, MaterialCardError, NonTextPdfError
+from .exceptions import ContextError, DataValidationError, MaterialCardError, NonTextPdfError
 from .models import ApprovalRequestData, MaterialData
 from .parse_regex import ParserDiagnostics, parse_material_from_text
 from .pdf_text import ensure_text_pdf, extract_text_from_pdf
@@ -66,6 +68,31 @@ def _echo_parser_diagnostics_if_any(diagnostics: ParserDiagnostics | None) -> No
     typer.echo(_format_parser_diagnostics(diagnostics), err=True)
 
 
+def _write_extracted_text_debug_file(pdf_path: Path, extracted_text: str) -> Path | None:
+    debug_path = pdf_path.with_name(f"{pdf_path.stem}_extracted.txt")
+    try:
+        debug_path.write_text(extracted_text, encoding="utf-8")
+    except OSError:
+        return None
+    return debug_path
+
+
+def _handle_non_text_pdf_error(
+    pdf_path: Path,
+    exc: NonTextPdfError,
+    *,
+    exit_code: int = 2,
+) -> None:
+    lines = [
+        "PDF wygląda na skan (brak warstwy tekstowej).",
+        "Zeskanuj do PDF z OCR / użyj wersji programu z OCR (planowane).",
+    ]
+    debug_path = _write_extracted_text_debug_file(pdf_path, exc.extracted_text)
+    if debug_path is not None:
+        lines.append(f"Zapisano podgląd ekstrakcji: {debug_path}")
+    _handle_error(NonTextPdfError("\n".join(lines), extracted_text=exc.extracted_text), exit_code=exit_code)
+
+
 def _parse_material_from_pdf(
     pdf_path: Path,
     min_chars: int,
@@ -81,6 +108,39 @@ def _parse_material_from_pdf(
     )
 
 
+def _default_output_path(pdf_path: Path) -> Path:
+    return pdf_path.with_suffix(".docx")
+
+
+def _default_context_candidates(pdf_path: Path) -> tuple[Path, ...]:
+    return (
+        pdf_path.parent / "context.json",
+        Path.cwd() / "context.json",
+    )
+
+
+def _resolve_context_path(pdf_path: Path, context_path: Path | None) -> Path:
+    if context_path is not None:
+        return context_path
+
+    for candidate in _default_context_candidates(pdf_path):
+        if candidate.exists():
+            return candidate
+
+    raise ContextError(
+        "Context file not found. Add context.json next to the PDF or run the command "
+        "from a folder containing context.json."
+    )
+
+
+def _default_template_resource():
+    return files("materialcard").joinpath("templates/default.docx")
+
+
+def _resolve_output_path(pdf_path: Path, output_path: Path | None) -> Path:
+    return output_path if output_path is not None else _default_output_path(pdf_path)
+
+
 @app.command()
 def parse(pdf: Path, min_chars: int = 200, debug: bool = False) -> None:
     """Parse material data from a PDF and output JSON."""
@@ -92,7 +152,7 @@ def parse(pdf: Path, min_chars: int = 200, debug: bool = False) -> None:
         _echo_parser_diagnostics_if_any(diagnostics)
     except NonTextPdfError as exc:
         _echo_parser_diagnostics_if_any(diagnostics)
-        _handle_error(exc, exit_code=2)
+        _handle_non_text_pdf_error(pdf, exc, exit_code=2)
     except PydanticValidationError as exc:
         _echo_parser_diagnostics_if_any(diagnostics)
         _handle_error(DataValidationError(_format_validation_error(exc)))
@@ -119,24 +179,32 @@ def build_approval(material_path: Path, context_path: Path) -> None:
 @app.command()
 def generate(
     pdf: Path,
-    context: Path,
-    template: Path,
-    output: Path,
+    context: Path | None = None,
+    template: Path | None = None,
+    output: Path | None = None,
     min_chars: int = 200,
 ) -> None:
     """Generate a DOCX approval request."""
 
     try:
-        generate_docx_from_pdf(
-            pdf,
-            context,
-            template,
-            output,
-            min_chars=min_chars,
-        )
-        typer.echo(str(output))
+        resolved_context = _resolve_context_path(pdf, context)
+        resolved_output = _resolve_output_path(pdf, output)
+        with ExitStack() as stack:
+            resolved_template = template
+            if resolved_template is None:
+                resolved_template = stack.enter_context(as_file(_default_template_resource()))
+            generate_docx_from_pdf(
+                pdf,
+                resolved_context,
+                resolved_template,
+                resolved_output,
+                min_chars=min_chars,
+            )
+        typer.echo(str(resolved_output))
     except NonTextPdfError as exc:
-        _handle_error(exc, exit_code=2)
+        _handle_non_text_pdf_error(pdf, exc, exit_code=2)
+    except ContextError as exc:
+        _handle_error(exc, exit_code=3)
     except PydanticValidationError as exc:
         _handle_error(DataValidationError(_format_validation_error(exc)))
     except MaterialCardError as exc:
