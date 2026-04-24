@@ -25,6 +25,33 @@ Co działa dzisiaj:
 
 ## Szybki start
 
+### Windows EXE - dla użytkowników
+
+Skąd wziąć EXE:
+- najlepiej z GitHub Releases dla taga `vX.Y.Z`
+- alternatywnie z artifactu `materialcard-windows-exe` w GitHub Actions
+
+Przygotuj w jednym folderze:
+- `materialcard.exe`
+- `context.json`
+- `karta.pdf`
+
+Uruchom:
+
+```powershell
+.\materialcard.exe .\karta.pdf
+```
+
+albo:
+
+```powershell
+.\materialcard.exe generate .\karta.pdf
+```
+
+Jeśli `context.json` jest obok PDF albo w bieżącym katalogu, program użyje go automatycznie. Wynik domyślnie zapisuje się jako `.\karta.docx`.
+
+### Poetry - dla developerów
+
 Instalacja:
 
 ```powershell
