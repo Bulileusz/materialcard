@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from contextlib import ExitStack
 from importlib.resources import as_file, files
 from pathlib import Path
@@ -133,12 +134,32 @@ def _resolve_context_path(pdf_path: Path, context_path: Path | None) -> Path:
     )
 
 
+def _rewrite_argv_for_pdf_shortcut(argv: list[str]) -> list[str]:
+    if len(argv) == 2 and argv[1].lower().endswith(".pdf"):
+        return [argv[0], "generate", argv[1]]
+    return argv
+
+
+def _frozen_template_path() -> Path | None:
+    base_dir = getattr(sys, "_MEIPASS", None)
+    if not base_dir:
+        return None
+    return Path(base_dir) / "materialcard" / "templates" / "default.docx"
+
+
 def _default_template_resource():
+    frozen_path = _frozen_template_path()
+    if frozen_path is not None:
+        return frozen_path
     return files("materialcard").joinpath("templates/default.docx")
 
 
 def _resolve_output_path(pdf_path: Path, output_path: Path | None) -> Path:
     return output_path if output_path is not None else _default_output_path(pdf_path)
+
+
+def main() -> None:
+    app(args=_rewrite_argv_for_pdf_shortcut(sys.argv)[1:])
 
 
 @app.command()
@@ -272,4 +293,4 @@ def batch(
 
 
 if __name__ == "__main__":
-    app()
+    main()

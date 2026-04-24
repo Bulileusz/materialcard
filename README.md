@@ -4,77 +4,53 @@
 
 `materialcard` to deterministyczne CLI w Pythonie do generowania wniosków akceptacyjnych DOCX na podstawie dokumentacji produktowej w PDF.
 
-Przepływ jest jawny i bez AI/ML: PDF -> ekstrakcja tekstu -> normalizacja -> parser regex + heurystyki -> dane strukturalne -> render DOCX.
-
-## Current status (MVP)
-
-MVP działa end-to-end:
+Przepływ jest jawny i bez AI/ML:
 
 ```text
-PDF -> text extraction -> normalization -> regex parser -> MaterialData -> ApprovalContext -> ApprovalRequestData -> DOCX
+PDF -> text extraction -> normalization -> regex parser + heuristics -> MaterialData -> ApprovalContext -> ApprovalRequestData -> DOCX
 ```
+
+Projekt obsługuje PDF z warstwą tekstową. OCR nie jest częścią wersji 1.0.
+
+## Current status
 
 Co działa dzisiaj:
 - ekstrakcja tekstu z tekstowych PDF-ów
-- normalizacja tekstu wejściowego i podstawowa naprawa typowego mojibake
 - deterministyczny parser regex + heurystyki bez AI, OCR i zgadywania runtime
-- fallbacki rankingowe dla `material_type` i `description`
-- diagnostyka parsera przez `parse --debug`
-- budowanie `ApprovalRequestData` z danych z PDF i kontekstu projektu
-- render DOCX przez `docxtpl`
-- workflow `generate` wydzielony do małej warstwy `services.py`, używanej także przez `batch`
-- batch processing z raportem JSON i per-plikową obsługą błędów
-- testy jednostkowe, fixture-based parser regression tests i prosty test integracyjny DOCX
+- fallbacki dla `material_type` i `description`, w tym obsługa dłuższych polskich kart produktowych z sekcją `Opis produktu`
+- workflow `generate` z domyślnym template i automatycznym wykrywaniem `context.json`
+- czytelny UX dla skanów bez warstwy tekstowej: diagnoza, exit code `2`, zapis `*_extracted.txt`
+- batch processing z raportem JSON
+- build jednoplikowego `materialcard.exe` na Windows
 
-To jest działające MVP, nie ogólny parser wszystkich układów kart materiałowych.
+## Usage
 
-## Example usage
+Happy path:
 
-Instalacja:
-
-```bash
-poetry install
+```powershell
+poetry run materialcard generate .\input\karta.pdf
 ```
 
-Parsowanie PDF do JSON:
+Jeśli `context.json` jest obok PDF albo w bieżącym katalogu, program użyje go automatycznie. Wynik domyślnie zapisuje się jako `.\input\karta.docx`.
 
-```bash
-poetry run materialcard parse .\input\karta.pdf
-```
+Przykłady:
 
-Parsowanie z diagnostyką parsera:
-
-```bash
+```powershell
+poetry run materialcard generate .\input\karta.pdf
 poetry run materialcard parse .\input\karta.pdf --debug
-```
-
-`--debug` wypisuje na stderr kroki parsera, m.in. dopasowanie labeli, znalezione fallback candidates, wybraną wartość i ostrzeżenia o brakujących polach.
-
-Budowanie danych wniosku z wcześniej zapisanego `MaterialData` i `context.json`:
-
-```bash
 poetry run materialcard build-approval .\material.json .\context.json
 ```
 
-Generowanie DOCX z użyciem `context.json`:
+Przykłady dla EXE:
 
-```bash
-poetry run materialcard generate `
-  .\input\karta.pdf `
-  .\context.json `
-  .\templates\approvals\wroclaw\TEMPLATE.docx `
-  .\out.docx
+```powershell
+.\dist\materialcard.exe generate .\input\karta.pdf
+.\dist\materialcard.exe .\input\karta.pdf
 ```
 
-Przetwarzanie katalogu PDF-ów i zapis `report.json`:
+Druga komenda działa także przy drag & drop PDF na `materialcard.exe`: jeśli program dostanie tylko jedną ścieżkę do pliku `.pdf`, traktuje to jak `generate <pdf>`.
 
-```bash
-poetry run materialcard batch `
-  .\input `
-  .\output `
-  --context .\context.json `
-  --template .\templates\approvals\wroclaw\TEMPLATE.docx
-```
+## Context
 
 Przykładowy `context.json`:
 
@@ -93,55 +69,83 @@ Przykładowy `context.json`:
 }
 ```
 
-## Architecture
+Domyślne zasady:
+- output: `<nazwa_pdf>.docx` obok wejściowego PDF
+- template: wbudowany domyślny template bundlowany z pakietem i EXE
+- context: najpierw `context.json` obok PDF, potem `context.json` w bieżącym katalogu
 
-Najważniejsze modele:
-- `MaterialData` - dane wyciągnięte z PDF, np. `material_type`, `description`
-- `ApprovalContext` - dane projektowe podawane z zewnątrz, np. `manufacturer`, `estimated_quantity`
-- `ApprovalRequestData` - końcowy kontrakt danych dla szablonu DOCX
+## Scan handling
 
-Skrót przepływu:
-- `pdf_text.py` - ekstrakcja tekstu z PDF
-- `parse_regex.py` - normalizacja tekstu, label-based regex, fallbacki i diagnostyka parsera
-- `builder.py` - złożenie `MaterialData` i `ApprovalContext`; kontekst ma pierwszeństwo dla załączników
-- `services.py` - workflow `generate_docx_from_pdf(...)`: PDF + kontekst + szablon -> `ApprovalRequestData` + DOCX
-- `renderer_docx.py` - render DOCX przez `docxtpl`
-- `cli.py` - komendy `parse`, `build-approval`, `generate`, `batch`
+Jeśli PDF wygląda na skan i nie ma warstwy tekstowej, program:
+- wypisze komunikat `PDF wygląda na skan (brak warstwy tekstowej).`
+- zasugeruje `Zeskanuj do PDF z OCR / użyj wersji programu z OCR (planowane).`
+- zakończy się z exit code `2`
+- zapisze obok plik `*_extracted.txt` z tym, co udało się wyciągnąć
 
-Parser działa deterministycznie: najpierw próbuje label-based extraction, potem stosuje proste rankingowe fallbacki dla `material_type` i `description`. Diagnostyka pozwala sprawdzić, które kroki zadziałały i jakie kandydaty fallback były brane pod uwagę.
+## Windows EXE build
 
-`ApprovalRequestData` przechowuje strukturalne dane dla szablonu. Tekst załączników (`attachments_text`) jest wyliczany z listy `attachments`, a nie składany w builderze.
+Wymagania:
+- Windows
+- Poetry
 
-Założenie MVP jest celowe: parser nie zgaduje producenta ani ilości. Te pola pochodzą z kontekstu.
+Build krok po kroku:
 
-## Known limitations
+```powershell
+poetry install --with build --extras docx
+.\scripts\build_exe.ps1
+```
 
-Obecne ograniczenia:
-- parser jest heurystyczny i może pomylić się na nietypowych układach dokumentów
-- PDF musi zawierać warstwę tekstową; OCR nie jest obsługiwany
-- edge cases zależne od layoutu PDF nadal wymagają fixture-based regresji
-- `manufacturer` i `estimated_quantity` pochodzą z kontekstu, nie z parsera PDF
+Alternatywnie ręcznie:
+
+```powershell
+poetry install --with build --extras docx
+poetry run pyinstaller --noconfirm --clean materialcard.spec
+```
+
+Wynik builda:
+
+```text
+dist\materialcard.exe
+```
+
+Właściwości builda:
+- jednoplikowy `materialcard.exe`
+- zawiera interpreter i zależności, więc nie wymaga zewnętrznego Pythona na komputerze użytkownika
+- zawiera domyślny template DOCX i działa także w trybie PyInstaller `--onefile`
 
 ## Development
 
 Instalacja zależności:
 
-```bash
+```powershell
 poetry install
 ```
 
 Uruchomienie testów:
 
-```bash
+```powershell
 poetry run pytest
 ```
 
-CLI:
+CLI help:
 
-```bash
+```powershell
 poetry run materialcard --help
 ```
 
-Testy obejmują deterministic parser behavior, fixture-based parser regression tests, CLI smoke tests, service orchestration tests, builder tests i prosty render DOCX. Projekt nie używa AI/ML ani OCR w runtime.
+## Architecture
 
-Projekt jest prowadzony przez Poetry. Jeśli testy nie startują w "gołym" interpreterze Pythona, najpierw sprawdź środowisko Poetry i zainstalowane zależności.
+Najważniejsze moduły:
+- `pdf_text.py` - ekstrakcja tekstu z PDF
+- `parse_regex.py` - parser regex + heurystyki
+- `builder.py` - złożenie `MaterialData` i `ApprovalContext`
+- `services.py` - workflow `generate_docx_from_pdf(...)`
+- `renderer_docx.py` - render DOCX przez `docxtpl`
+- `cli.py` - komendy `parse`, `build-approval`, `generate`, `batch`
+
+## Known limitations
+
+- parser jest heurystyczny i może mylić się na nietypowych layoutach
+- PDF musi mieć warstwę tekstową
+- OCR nie jest zaimplementowany w wersji 1.0
+- `manufacturer` i `estimated_quantity` pochodzą z kontekstu, nie z parsera PDF

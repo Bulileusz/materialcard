@@ -7,7 +7,9 @@ import pytest
 from materialcard.cli import (
     _default_context_candidates,
     _default_output_path,
+    _frozen_template_path,
     _parse_material_from_pdf,
+    _rewrite_argv_for_pdf_shortcut,
     _resolve_context_path,
     _resolve_output_path,
 )
@@ -110,3 +112,25 @@ def test_resolve_output_path_uses_explicit_value_when_provided() -> None:
     output_path = Path("custom/result.docx")
 
     assert _resolve_output_path(pdf_path, output_path) == output_path
+
+
+def test_rewrite_argv_for_pdf_shortcut_inserts_generate_command() -> None:
+    assert _rewrite_argv_for_pdf_shortcut(["materialcard.exe", "C:\\docs\\input.pdf"]) == [
+        "materialcard.exe",
+        "generate",
+        "C:\\docs\\input.pdf",
+    ]
+
+
+def test_rewrite_argv_for_pdf_shortcut_leaves_normal_cli_invocation_unchanged() -> None:
+    assert _rewrite_argv_for_pdf_shortcut(["materialcard.exe", "generate", "input.pdf"]) == [
+        "materialcard.exe",
+        "generate",
+        "input.pdf",
+    ]
+
+
+def test_frozen_template_path_uses_meipass(monkeypatch) -> None:
+    monkeypatch.setattr("materialcard.cli.sys", type("FrozenSys", (), {"_MEIPASS": "C:\\bundle"})())
+
+    assert _frozen_template_path() == Path("C:/bundle/materialcard/templates/default.docx")
