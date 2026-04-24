@@ -23,6 +23,26 @@ _DESCRIPTION_LABELS = (
     "opis",
 )
 
+_POLISH_DESCRIPTION_SECTION_MARKERS = (
+    "opis produktu",
+)
+
+_POLISH_DESCRIPTION_SECTION_STOP_MARKERS = (
+    "zastosowanie",
+    "obrobka",
+    "obróbka",
+    "dane techniczne",
+    "wlasciwosci",
+    "właściwości",
+)
+
+_POLISH_PRODUCT_TITLE_STOP_MARKERS = (
+    "europejska ocena techniczna",
+    "deklaracja wlasciwosci uzytkowych",
+    "deklaracja właściwości użytkowych",
+    "zamierzone zastosowanie",
+)
+
 _FALLBACK_EXCLUDED_LABEL_PREFIXES = (
     "manufacturer",
     "producent",
@@ -255,6 +275,57 @@ def _extract_labeled_value(text: str, labels: tuple[str, ...]) -> str | None:
     return None
 
 
+def _extract_polish_product_sheet_material_type(text: str) -> str | None:
+    lowered = text.lower()
+    marker_positions = [
+        lowered.find(marker)
+        for marker in _POLISH_DESCRIPTION_SECTION_MARKERS
+        if lowered.find(marker) != -1
+    ]
+    if not marker_positions:
+        return None
+
+    title_block = re.sub(r"\s+", " ", text[: min(marker_positions)]).strip(" .;:-")
+    if not title_block:
+        return None
+
+    title_lowered = title_block.lower()
+    stop_positions = [
+        title_lowered.find(marker)
+        for marker in _POLISH_PRODUCT_TITLE_STOP_MARKERS
+        if title_lowered.find(marker) != -1
+    ]
+    if stop_positions:
+        title_block = title_block[: min(stop_positions)].strip(" .;:-")
+
+    return title_block or None
+
+
+def _extract_polish_product_sheet_description(text: str) -> str | None:
+    lowered = text.lower()
+    marker_matches = [
+        (position, marker)
+        for marker in _POLISH_DESCRIPTION_SECTION_MARKERS
+        if (position := lowered.find(marker)) != -1
+    ]
+    if not marker_matches:
+        return None
+
+    start_position, marker = min(marker_matches, key=lambda item: item[0])
+    description_block = text[start_position + len(marker) :]
+    description_lowered = description_block.lower()
+    stop_positions = [
+        description_lowered.find(stop_marker)
+        for stop_marker in _POLISH_DESCRIPTION_SECTION_STOP_MARKERS
+        if description_lowered.find(stop_marker) != -1
+    ]
+    if stop_positions:
+        description_block = description_block[: min(stop_positions)]
+
+    description = re.sub(r"\s+", " ", description_block).strip(" .;:-")
+    return description or None
+
+
 def _is_fallback_material_type_candidate(line: str) -> bool:
     lowered = line.strip().lower()
     if not lowered:
@@ -405,6 +476,19 @@ def _extract_material_type(
     if labeled:
         return labeled
 
+    section_aware = _extract_polish_product_sheet_material_type(text)
+    if diagnostics is not None:
+        diagnostics.add_event(
+            field_name="material_type",
+            step_name="section_extraction",
+            status="matched" if section_aware else "not_matched",
+            matched=bool(section_aware),
+            value_preview=_preview_value(section_aware),
+            note="activated only for Polish product sheets with 'Opis produktu'",
+        )
+    if section_aware:
+        return section_aware
+
     candidates = [line for line in lines if _is_fallback_material_type_candidate(line)]
     if diagnostics is not None and candidates:
         preview = "; ".join(_preview_value(candidate, limit=40) or "" for candidate in candidates[:3])
@@ -473,6 +557,19 @@ def _extract_description(
         )
     if labeled:
         return labeled
+
+    section_aware = _extract_polish_product_sheet_description(text)
+    if diagnostics is not None:
+        diagnostics.add_event(
+            field_name="description",
+            step_name="section_extraction",
+            status="matched" if section_aware else "not_matched",
+            matched=bool(section_aware),
+            value_preview=_preview_value(section_aware),
+            note="activated only for Polish product sheets with 'Opis produktu'",
+        )
+    if section_aware:
+        return section_aware
 
     selected = _select_description_fallback(lines, material_type)
     if selected is not None:

@@ -227,6 +227,22 @@ def test_parse_material_from_text_selects_useful_description_fallback(
     assert result.description == expected_description
 
 
+def test_parse_material_from_text_extracts_polish_product_sheet_sections() -> None:
+    text = """
+    PROMATECT-H płyta ogniochronna Europejska Ocena Techniczna: ETA-06/0206
+    Opis produktu Ogniochronne płyty silikatowo-cementowe, niewrażliwe na wilgoć, wielkoformatowe, samonośne.
+    Zastosowanie Płyty przeznaczone są do stosowania w budownictwie ogólnym.
+    Dane techniczne Gęstość objętościowa: 870 kg/m3
+    """
+
+    result = parse_material_from_text(text)
+
+    assert result.material_type == "PROMATECT-H płyta ogniochronna"
+    assert result.description == (
+        "Ogniochronne płyty silikatowo-cementowe, niewrażliwe na wilgoć, wielkoformatowe, samonośne"
+    )
+
+
 def test_parse_material_from_text_records_missing_required_field_diagnostics() -> None:
     diagnostics = ParserDiagnostics()
     text = """

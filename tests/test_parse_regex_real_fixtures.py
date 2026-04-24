@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from materialcard.parse_regex import ParserDiagnostics, parse_material_from_text
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "parser_real"
@@ -50,10 +48,6 @@ def test_parse_real_dachpodloga_fixture_expected_product_and_use_description() -
     assert "Izolacja cieplna w budownictwie" in result.description
 
 
-@pytest.mark.xfail(
-    reason="The current parser does not isolate the product description from this long text sheet.",
-    strict=True,
-)
 def test_parse_real_promatecth_fixture_expected_product_and_description() -> None:
     result = parse_material_from_text(_read_fixture("promatecth.txt"))
 
